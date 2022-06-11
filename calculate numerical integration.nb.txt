@@ -1,0 +1,189 @@
+(* ======================================================================== \
+*)
+(* Gauss-Legendre Integration 2D*)
+(* Calculation of integration nodes and weights *)
+(*
+m = order of shape functions,
+acc = accuracy (recommended: 16)
+*)
+calcIntGL2D[m_, acc_] :=
+  Module[{sol, len, xh, i, x, j, f, weight, xiileg1, xiileg2, sortxh, 
+    xiileg, k, phiq, phil, alpha},
+   
+   (* Zeros of the Legendre polynome *)
+   sol = Solve[LegendreP[m + 1, x] == 0, x];
+   len = Length@sol;
+   For[i = 1, i <= len, i++,
+    xh[i] = sol[[i, 1, 2]];
+    ];
+   sortxh = N[SortBy[Table[xh[i], {i, 1, len}], N], acc];
+   x[0] = -1;
+   x[1] = 1;
+   N[Table[xiileg[i] = (1 + sortxh[[i]])/2, {i, 1, len}], acc];
+   
+   (* Calculation of Lagrange polynomes *)
+   For[j = 1, j <= m + 1, j++,
+    For[i = 1, i <= m + 1, i++,
+     If[i != j, f[i] = (xiileg - xiileg[i])/(xiileg[j] - xiileg[i]), 
+       f[i] = 1];
+     ];
+    phil[j] = Product[f[i], {i, 1, m + 1}];
+    ];
+   
+   (* 2D transformation *)
+   k = 0;
+   Table[k++; 
+    phiq[k] = 
+     Expand[(phil[i] /. xiileg -> xiileg1)*(phil[j] /. 
+         xiileg -> xiileg2)], {j, 1, m + 1}, {i, 1, m + 1}];
+   
+   (* Calculation of weights *)
+   weight[i_] := Integrate[phiq[i], {xiileg1, 0, 1}, {xiileg2, 0, 1}];
+   
+   (* Output *)
+   Table[alpha[i] = weight[i], {i, 1, (m + 1)^2}];
+   Print["Nodes for m=" <> ToString[m], ":", 
+    NumberForm[
+     N[Flatten[
+       Table[{xiileg[i], xiileg[j]}, {i, 1, m + 1}, {j, 1, m + 1}], 
+       1], acc], acc]];
+   Print["Integrationweights for m=" <> ToString[m], ":", 
+    NumberForm[Table[alpha[i], {i, 1, (m + 1)^2}], acc]];
+   ];
+(* ======================================================================== \
+*)
+
+(* ======================================================================== \
+*)
+(* Lobatto Integration 2D*)
+(* Calculation of integration nodes and weights *)
+(*
+m = order of shape functions,
+acc = accuracy (recommended: 16)
+*)
+calcIntLOB2D[m_, acc_] :=
+ Module[{sol, len, xh, i, x, j, f, weight, xiileg1, xiileg2, mlobatto,
+    solsort, intnodes, xii, phiq, phil, xi, xi1, xi2, k, ns, alpha},
+  (* Calculation Lobatto shape functions *)
+  LobattoP[n_, x_] := D[LegendreP[n + 1, x], x];
+  mlobatto = m - 1;
+  sol = Solve[LobattoP[mlobatto, x] == 0, x];
+  sol = {-1}~Join~sol[[;; , 1, 2]]~Join~{1};
+  solsort = Re@SortBy[sol, N];
+  Table[xii[i] = N[(1 + solsort[[i]])/2, 32], {i, 1, m + 1}];
+  intnodes = Table[xii[i], {i, 1, m + 1}];
+  
+  Table[ns[i] = N[intnodes[[i]], 16], {i, 1, m + 1}];
+  For[j = 1, j <= m + 1, j++,
+   For[i = 1, i <= m + 1, i++,
+    If[i != j, 
+      f[i] = (xi - intnodes[[i]])/(intnodes[[j]] - intnodes[[i]]), 
+      f[i] = 1];
+    ];
+   phil[j] = Product[f[i], {i, 1, m + 1}];
+   ];
+  
+  (* 2D *)
+  k = 0;
+  Table[k++; 
+   phiq[k] = 
+    Expand[(phil[i] /. xi -> xi1)*(phil[j] /. xi -> xi2)], {j, 1, 
+    m + 1}, {i, 1, m + 1}];
+  
+  (* Calculation weights *)
+  weight[i_] := Integrate[phiq[i], {xi1, 0, 1}, {xi2, 0, 1}];
+  Table[alpha[i] = weight[i], {i, 1, (m + 1)^2}];
+  
+  Print["Nodes for m=" <> ToString[m], ":", 
+   NumberForm[
+    N[Flatten[Table[{ns[i], ns[j]}, {i, 1, m + 1}, {j, 1, m + 1}], 1],
+      acc], acc]];
+  Print["Integrationweights for m=" <> ToString[m], ":", 
+   Table[NumberForm[N[alpha[i], acc], acc], {i, 1, (m + 1)^2}]];
+  ]
+(* ======================================================================== \
+*)
+
+(* ======================================================================== \
+*)
+(* Gauss-Legendre Integration 1D*)
+(* Calculation of integration nodes and weights *)
+(*
+m = order of shape functions,
+acc = accuracy (recommended: 16)
+*)
+calcIntGL1D[m_, acc_] :=
+ Module[{mlobatto, sol, solsort, xii, intnodes, i, j, xi, phil, 
+   intweights, len, xh, x, xiileg, sortxh, weight, alpha},
+  
+  (* Zeros of the Legendre polynome *)
+  sol = Solve[LegendreP[m + 1, x] == 0, x];
+  len = Length@sol;
+  For[i = 1, i <= len, i++,
+   xh[i] = sol[[i, 1, 2]];
+   ];
+  sortxh = N[SortBy[Table[xh[i], {i, 1, len}], N], acc];
+  x[0] = -1;
+  x[1] = 1;
+  N[Table[xiileg[i] = (1 + sortxh[[i]])/2, {i, 1, len}], acc];
+  
+  (* Calculation of Lagrange polynomes *)
+  For[j = 1, j <= m + 1, j++,
+   For[i = 1, i <= m + 1, i++,
+    If[i != j, f[i] = (xiileg - xiileg[i])/(xiileg[j] - xiileg[i]), 
+      f[i] = 1];
+    ];
+   phil[j] = Product[f[i], {i, 1, m + 1}];
+   ];
+  
+  (* Calculation of weights *)
+  weight[i_] := Integrate[phil[i], {xiileg, 0, 1}];
+  
+  Table[alpha[i] = weight[i], {i, 1, m + 1}];
+  Print["Nodes for m=" <> ToString[m], ":", 
+   NumberForm[N[Flatten[Table[xiileg[i], {i, 1, m + 1}], 1], acc], 
+    acc]];
+  Print["Integrationweights for m=" <> ToString[m], ":", 
+   NumberForm[Table[alpha[i], {i, 1, (m + 1)}], acc]];
+  ]
+(* ======================================================================== \
+*)
+
+
+(* ======================================================================== \
+*)
+(* Lobatto Integration 1D*)
+(* Calculation of integration nodes and weights *)
+(*
+m = order of shape functions,
+acc = accuracy (recommended: 16)
+*)
+calcIntLOB1D[m_, acc_] :=
+ Module[{mlobatto, sol, solsort, xii, intnodes, i, j, xi, phil, 
+   intweights},
+  (* ============= *)
+  (* Calculation Lobatto shape functions *)
+  LobattoP[n_, x_] := D[LegendreP[n + 1, x], x];
+  mlobatto = m - 1;
+  sol = Solve[LobattoP[mlobatto, x] == 0, x];
+  sol = {-1}~Join~sol[[;; , 1, 2]]~Join~{1};
+  solsort = Re@SortBy[sol, N];
+  Table[xii[i] = N[(1 + solsort[[i]])/2, 32], {i, 1, m + 1}];
+  intnodes = Table[xii[i], {i, 1, m + 1}];
+  
+  For[j = 1, j <= m + 1, j++,
+   For[i = 1, i <= m + 1, i++,
+    If[i != j, f[i] = (xi - xii[i])/(xii[j] - xii[i]), f[i] = 1];
+    ];
+   phil[j] = Product[f[i], {i, 1, m + 1}] // Expand;
+   ];
+  intweights = Table[Integrate[phil[i], {xi, 0, 1}], {i, 1, m + 1}];
+  
+  Print["Nodes for m=" <> ToString[m], ":", 
+   NumberForm[N[Flatten[Table[xii[i], {i, 1, m + 1}], 1], acc], acc]];
+  Print["Integrationweights for m=" <> ToString[m], ":", 
+   NumberForm[intweights, acc]];
+  ]
+(* ======================================================================== \
+*)
+
